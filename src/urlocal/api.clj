@@ -16,8 +16,8 @@
 ; SPDX-License-Identifier: Apache-2.0
 ;
 
-(ns etagger.api
-  "The public API of the etagger library."
+(ns urlocal.api
+  "The public API of the urlocal library."
   (:require [clojure.string        :as s]
             [clojure.java.io       :as io]
             [clojure.tools.logging :as log]
@@ -31,7 +31,7 @@
                                 xdg-cache-home
                                 (str xdg-cache-home java.io.File/separator)))))
 
-(def ^:private cache-dir-a                 (atom (str cache-home "etagger")))
+(def ^:private cache-dir-a                 (atom (str cache-home "urlocal")))
 (def ^:private cache-check-interval-secs-a (atom 86400))  ; 86400 seconds = 24 hours
 
 (defn- base64-encode
@@ -173,7 +173,7 @@
                 read-timeout      1000
                 follow-redirects? false
                 authenticator     nil
-                request-headers   {"User-Agent" "com.github.pmonks/etagger"}}
+                request-headers   {"User-Agent" "com.github.pmonks/urlocal"}}
          :as   opts}]
    (when-let [u (io/as-url url)]
      (when (s/starts-with? (s/lower-case (.getProtocol u)) "http")
@@ -188,7 +188,7 @@
 
 (defn set-cache-name!
   "Sets the name of the cache (which ends up being part of the cache directory's
-  name), and returns nil.  Default is 'etagger'.
+  name), and returns nil.  Default is 'urlocal'.
 
   Notes:
   * name must not be blank.

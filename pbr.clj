@@ -20,16 +20,16 @@
 (defn set-opts
   [opts]
   (assoc opts
-         :lib          'com.github.pmonks/etagger
+         :lib          'com.github.pmonks/urlocal
          :version      (pbr/calculate-version 0 1)
          :write-pom    true
          :validate-pom true
          :pom          {:description      "A Clojure micro-library for cached (ETag based) URL downloads "
-                        :url              "https://github.com/pmonks/etagger"
+                        :url              "https://github.com/pmonks/urlocal"
                         :licenses         [:license   {:name "Apache License 2.0" :url "http://www.apache.org/licenses/LICENSE-2.0.html"}]
-                        :developers       [:developer {:id "pmonks" :name "Peter Monks" :email "pmonks+etagger@gmail.com"}]
-                        :scm              {:url                  "https://github.com/pmonks/etagger"
-                                           :connection           "scm:git:git://github.com/pmonks/etagger.git"
-                                           :developer-connection "scm:git:ssh://git@github.com/pmonks/etagger.git"
+                        :developers       [:developer {:id "pmonks" :name "Peter Monks" :email "pmonks+urlocal@gmail.com"}]
+                        :scm              {:url                  "https://github.com/pmonks/urlocal"
+                                           :connection           "scm:git:git://github.com/pmonks/urlocal.git"
+                                           :developer-connection "scm:git:ssh://git@github.com/pmonks/urlocal.git"
                                            :tag                  (tc/git-tag-or-hash)}
-                        :issue-management {:system "github" :url "https://github.com/pmonks/etagger/issues"}}))
+                        :issue-management {:system "github" :url "https://github.com/pmonks/urlocal/issues"}}))
