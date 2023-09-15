@@ -6,7 +6,7 @@
 [![Latest Version](https://img.shields.io/clojars/v/com.github.pmonks/urlocal)](https://clojars.org/com.github.pmonks/urlocal/) [![Open Issues](https://img.shields.io/github/issues/pmonks/urlocal.svg)](https://github.com/pmonks/urlocal/issues) [![License](https://img.shields.io/github/license/pmonks/urlocal.svg)](https://github.com/pmonks/urlocal/blob/main/LICENSE)
 
 
-<img alt="urlocal logo: a street art image of a brick wall with a red tag scrawled across it that says 'urlocal'" align="right" width="5%" src="https://raw.githubusercontent.com/pmonks/urlocal/main/urlocal-logo.png">
+<img alt="urlocal logo: a generated image of a local pub, as one might find in Europe" align="right" width="25%" src="https://raw.githubusercontent.com/pmonks/urlocal/main/urlocal-logo.png">
 
 # urlocal
 

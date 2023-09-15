@@ -20,6 +20,7 @@
   "The public API of the urlocal library."
   (:require [clojure.string     :as s]
             [clojure.java.io    :as io]
+            [urlocal.impl.xdg   :as xdg]
             [urlocal.impl.cache :as uic]))
 
 #_{:clj-kondo/ignore [:unused-binding {:exclude-destructured-keys-in-fn-args true}]}
@@ -48,13 +49,13 @@
 
   Notes:
   * name must not be blank.
-  * the new cache will be empty.
+  * the new cache may not be empty if it was previously populated.
   * setting a new name after a previously named cache has already been populated
     will 'orphan' the prior cache. To avoid this, you should call [[reset-cache!]]
     prior to setting a new name."
   [^String name]
   (when-not (s/blank? name)
-    (let [cache-dir (str uic/cache-home name)]
+    (let [cache-dir (str xdg/cache-home name)]
       (io/make-parents (io/file (str cache-dir java.io.File/separator "dummy.txt")))  ; Make the cache dir first, so that any IO errors get thrown before we swap the atom
       (swap! uic/cache-dir-a (constantly cache-dir))
       nil)))

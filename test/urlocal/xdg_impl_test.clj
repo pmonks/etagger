@@ -16,14 +16,11 @@
 ; SPDX-License-Identifier: Apache-2.0
 ;
 
-(ns urlocal.api-test
-  (:require [clojure.test :refer [deftest testing is]]
-            [urlocal.api  :refer [set-cache-name! reset-cache! set-cache-check-interval-secs! input-stream]]))
+(ns urlocal.xdg-impl-test
+  (:require [clojure.string   :as s]
+            [clojure.test     :refer [deftest testing is]]
+            [urlocal.impl.xdg :refer [cache-home]]))
 
-(set-cache-name! "urlocal-tests")
-(reset-cache!)
-
-(deftest input-stream-tests
-  (testing "nil, blank, etc."
-    (is (nil? (input-stream nil)))
-    (is (nil? (input-stream "")))))
+(deftest cache-home-tests
+  (testing "cache-home is set"
+    (is (not (s/blank? cache-home)))))

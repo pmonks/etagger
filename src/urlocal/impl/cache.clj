@@ -22,17 +22,10 @@
   (:require [clojure.string        :as s]
             [clojure.java.io       :as io]
             [clojure.tools.logging :as log]
-            [clojure.edn           :as edn]))
+            [clojure.edn           :as edn]
+            [urlocal.impl.xdg      :as xdg]))
 
-; Note: always ends with a path separator
-(def cache-home (let [xdg-cache-home (System/getenv "XDG_CACHE_HOME")]
-                  (if (s/blank? xdg-cache-home)
-                    (str (System/getProperty "user.home") java.io.File/separator ".cache" java.io.File/separator)
-                    (if (s/ends-with? xdg-cache-home java.io.File/separator)
-                      xdg-cache-home
-                      (str xdg-cache-home java.io.File/separator)))))
-
-(def cache-dir-a                 (atom (str cache-home "urlocal")))
+(def cache-dir-a                 (atom (str xdg/cache-home "urlocal")))
 (def cache-check-interval-secs-a (atom 86400))  ; 86400 seconds = 24 hours
 
 (defn base64-encode
@@ -109,15 +102,23 @@
   returning an HTTPUrlConnection object.
 
   Throws on IO errors."
-  ^java.net.HttpURLConnection [^java.net.URL url {:keys [connect-timeout read-timeout follow-redirects? authenticator request-headers]}]
-  (let [conn (doto ^java.net.HttpURLConnection  (.openConnection url)
-                   (.setRequestMethod           "GET")
-                   (.setConnectTimeout          connect-timeout)
-                   (.setReadTimeout             read-timeout)
-                   (.setInstanceFollowRedirects follow-redirects?))]
-    (when authenticator (.setAuthenticator conn authenticator))
-    (run! #(.setRequestProperty conn (key %) (val %)) request-headers)
-    conn))
+  ^java.net.HttpURLConnection [^java.net.URL url
+                               {:keys [connect-timeout read-timeout follow-redirects? authenticator request-headers]
+                                :or   {connect-timeout   1000
+                                       read-timeout      1000
+                                       follow-redirects? false
+                                       authenticator     nil
+                                       request-headers   {"User-Agent" "com.github.pmonks/urlocal"}}}]
+  (when url
+    (let [conn (doto ^java.net.HttpURLConnection  (.openConnection url)
+                     (.setRequestMethod           "GET")
+                     (.setConnectTimeout          connect-timeout)
+                     (.setReadTimeout             read-timeout)
+                     (.setInstanceFollowRedirects follow-redirects?))]
+      (when authenticator (.setAuthenticator conn authenticator))
+      (run! #(.setRequestProperty conn (key %) (val %)) request-headers)
+      (.connect conn)
+      conn)))
 
 (defn cache-miss!
   "Handles a cache miss, by downloading the content for the given url and

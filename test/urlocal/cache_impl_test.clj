@@ -17,12 +17,23 @@
 ;
 
 (ns urlocal.cache-impl-test
-  (:require [clojure.test       :refer [deftest testing is]]
-            [urlocal.impl.cache :refer [base64-encode]]))
+  (:require [clojure.java.io    :as io]
+            [clojure.test       :refer [deftest testing is]]
+            [urlocal.impl.cache :refer [base64-encode http-get]]))
 
 (deftest base64-encode-tests
   (testing "nil, blank, etc."
     (is (nil?     (base64-encode nil)))
     (is (= ""     (base64-encode "")))
     (is (= "ICA=" (base64-encode "  ")))
-    (is (= "DQoJ" (base64-encode "\r\n\t")))))
+    (is (= "DQoJ" (base64-encode "\r\n\t"))))
+  (testing "Some urls"
+    (is (= "aHR0cHM6Ly93d3cuZ29vZ2xlLmNvbS8=" (base64-encode "https://www.google.com/")))))
+
+(deftest http-get-tests
+  (testing "nil"
+    (is (nil? (http-get nil nil))))
+  (testing "Invalid URLs"
+    (is (thrown? java.io.IOException (http-get (io/as-url "http://INVALID_HOST_THAT_DOES_NOT_EXIST.local/") nil))))
+  (testing "Valid URLs"
+    (is (not (nil? (http-get (io/as-url "https://www.google.com/")))))))
