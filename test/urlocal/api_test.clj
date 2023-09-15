@@ -25,5 +25,5 @@
 
 (deftest input-stream-tests
   (testing "nil, blank, etc."
-    (is (nil? (input-stream nil)))
-    (is (nil? (input-stream "")))))
+    (is (nil?                                   (input-stream nil)))
+    (is (thrown? java.net.MalformedURLException (input-stream "")))))

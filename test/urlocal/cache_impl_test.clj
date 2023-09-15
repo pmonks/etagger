@@ -32,8 +32,9 @@
 
 (deftest http-get-tests
   (testing "nil"
+    (is (nil? (http-get nil)))
     (is (nil? (http-get nil nil))))
   (testing "Invalid URLs"
-    (is (thrown? java.io.IOException (http-get (io/as-url "http://INVALID_HOST_THAT_DOES_NOT_EXIST.local/") nil))))
+    (is (thrown? java.io.IOException (http-get (io/as-url "http://INVALID_HOST_THAT_DOES_NOT_EXIST.local/")))))
   (testing "Valid URLs"
     (is (not (nil? (http-get (io/as-url "https://www.google.com/")))))))

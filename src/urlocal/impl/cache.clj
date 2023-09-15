@@ -102,23 +102,24 @@
   returning an HTTPUrlConnection object.
 
   Throws on IO errors."
-  ^java.net.HttpURLConnection [^java.net.URL url
-                               {:keys [connect-timeout read-timeout follow-redirects? authenticator request-headers]
-                                :or   {connect-timeout   1000
-                                       read-timeout      1000
-                                       follow-redirects? false
-                                       authenticator     nil
-                                       request-headers   {"User-Agent" "com.github.pmonks/urlocal"}}}]
-  (when url
-    (let [conn (doto ^java.net.HttpURLConnection  (.openConnection url)
-                     (.setRequestMethod           "GET")
-                     (.setConnectTimeout          connect-timeout)
-                     (.setReadTimeout             read-timeout)
-                     (.setInstanceFollowRedirects follow-redirects?))]
-      (when authenticator (.setAuthenticator conn authenticator))
-      (run! #(.setRequestProperty conn (key %) (val %)) request-headers)
-      (.connect conn)
-      conn)))
+  (^java.net.HttpURLConnection [^java.net.URL url] (http-get url nil))
+  (^java.net.HttpURLConnection [^java.net.URL url
+                                {:keys [connect-timeout read-timeout follow-redirects? authenticator request-headers]
+                                 :or   {connect-timeout   1000
+                                        read-timeout      1000
+                                        follow-redirects? false
+                                        authenticator     nil
+                                        request-headers   {"User-Agent" "com.github.pmonks/urlocal"}}}]
+   (when url
+     (let [conn (doto ^java.net.HttpURLConnection  (.openConnection url)
+                      (.setRequestMethod           "GET")
+                      (.setConnectTimeout          connect-timeout)
+                      (.setReadTimeout             read-timeout)
+                      (.setInstanceFollowRedirects follow-redirects?))]
+       (when authenticator (.setAuthenticator conn authenticator))
+       (run! #(.setRequestProperty conn (key %) (val %)) request-headers)
+       (.connect conn)
+       conn))))
 
 (defn cache-miss!
   "Handles a cache miss, by downloading the content for the given url and
