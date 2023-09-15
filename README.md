@@ -6,7 +6,7 @@
 [![Latest Version](https://img.shields.io/clojars/v/com.github.pmonks/etagger)](https://clojars.org/com.github.pmonks/etagger/) [![Open Issues](https://img.shields.io/github/issues/pmonks/etagger.svg)](https://github.com/pmonks/etagger/issues) [![License](https://img.shields.io/github/license/pmonks/etagger.svg)](https://github.com/pmonks/etagger/blob/main/LICENSE)
 
 
-<img alt="etagger logo: a street art image of a brick wall with a red tag scrawled across it that says 'etagger'" align="right" width="25%" src="https://raw.githubusercontent.com/pmonks/lice-comb/main/etagger-logo.png">
+<img alt="etagger logo: a street art image of a brick wall with a red tag scrawled across it that says 'etagger'" align="right" width="25%" src="https://raw.githubusercontent.com/pmonks/etagger/main/etagger-logo.png">
 
 # etagger
 
