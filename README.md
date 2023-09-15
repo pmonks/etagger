@@ -6,13 +6,13 @@
 [![Latest Version](https://img.shields.io/clojars/v/com.github.pmonks/etagger)](https://clojars.org/com.github.pmonks/etagger/) [![Open Issues](https://img.shields.io/github/issues/pmonks/etagger.svg)](https://github.com/pmonks/etagger/issues) [![License](https://img.shields.io/github/license/pmonks/etagger.svg)](https://github.com/pmonks/etagger/blob/main/LICENSE)
 
 
-<img alt="etagger logo: a street art image of a brick wall with a red tag scrawled across it that says 'etagger'" align="right" width="25%" src="https://raw.githubusercontent.com/pmonks/etagger/main/etagger-logo.png">
+<img alt="etagger logo: a street art image of a brick wall with a red tag scrawled across it that says 'etagger'" align="right" width="5%" src="https://raw.githubusercontent.com/pmonks/etagger/main/etagger-logo.png">
 
 # etagger
 
 A Clojure micro-library for cached (ETag based) URL downloads.  Fundamentally this library provides a single fn for reading the content of a URL, and will transparently cache that content locally on disk (in accordance with the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)) and serve it out of that cache whenever possible.
 
-Cached content is checked for staleness periodically via HTTP ETag GET requests, which are more efficient that a regular HTTP GET request in the event the cache is up to date.  This staleness checking interval is also configurable, obviating the need for any network I/O at all in some cases.  For applications that cannot tolerate , including all the way down to 0 (meaning "check for staleness on every request").
+Cached content is checked for staleness periodically via HTTP ETag GET requests, which are more efficient than a regular HTTP GET request in the event the cache is up to date.  This staleness checking interval is also configurable, obviating the need for any network I/O at all in some cases.  For applications that cannot tolerate , including all the way down to 0 (meaning "check for staleness on every request").
 
 The library only has one non-core dependency - on `clojure.tools.logging`, and is compatible with JVMs 1.8 and above (it does not use the Java 11+ HTTP client).
 
