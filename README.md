@@ -10,13 +10,13 @@
 
 # urlocal
 
-A Clojure micro-library for cached (ETag based) URL downloads.  Fundamentally this library provides a single fn for reading the content of a URL, and will transparently cache that content locally on disk (in accordance with the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)) and serve it out of that cache whenever possible.
+A Clojure micro-library for cached (ETag based) URL downloads.  At its most simple this library provides a single fn (`urlocal.api/input-stream`) for reading the content of a URL, and will transparently cache downloaded content locally on disk (as per the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)), serving subsequent requests for that same content out of that cache whenever possible.  Because this content is persisted on disk, the cache survives restarts of the JVM.
 
-Cached content is checked for staleness periodically via HTTP ETag GET requests, which are more efficient than a regular HTTP GET request in the event the cache is up to date.  This staleness checking interval is also configurable, obviating the need for any network I/O at all in some cases.  For applications that cannot tolerate , including all the way down to 0 (meaning "check for staleness on every request").
+Cached content is checked for staleness periodically via HTTP ETag GET requests, which are more efficient than a regular HTTP GET request in the event the cache is up to date.  This staleness checking interval is also configurable, eliminating the need for any network I/O for cached content in many cases.  For applications that cannot tolerate any staleness, this checking interval can be set to 0 (meaning "make an ETag request to check for staleness on every request of the URL's content").
 
-The library only has one non-core dependency - on `clojure.tools.logging`, and is compatible with JVMs 1.8 and above (it does not use the Java 11+ HTTP client).
+The library only has one non-core dependency - on `clojure.tools.logging`, and is compatible with JVMs 1.8 and above (it uses the crusty old Java 1.1 HTTP client, rather than the vastly improved Java 11+ HTTP client).
 
-While this is simple logic that is well understood and documented, the author thought it might be useful to centralise it to avoid the Clojure community having to reinvent (small) wheels.
+While ETag-based caching logic is simple, well understood, and widely documented, the author thought it might be useful to centralise it in the interests of avoiding reinventing (small) wheels.
 
 ## Installation
 
