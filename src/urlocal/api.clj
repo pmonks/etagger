@@ -29,6 +29,20 @@
   String, java.net.URL or java.net.URI), or nil if url is nil or unsupported
   (i.e. is not an http(s) URL).
 
+  The options map provides these tunables, all of them optional:
+  * `:connect-timeout` (int, default=1000): the number of milliseconds to wait when
+    establishing the socket connection before timing out
+  * `:read-timeout` (int, default=1000): the number of milliseconds to wait when
+    reading content over the socket before timing out
+  * `:read-timeout` (int, default=1000): the number of milliseconds to wait when
+    reading content over the socket before timing out
+  * `:follows-redirects?` (boolean, default=false): whether to follow redirects
+    (HTTP status codes 301, 302) if the server issues one
+  * `:authenticator` (`java.net.Authenticator`, default=nil): an authenticator
+    object to use for the request
+  * `:request-headers` (map with string keys and values): a map of request
+    headers to send along with the request
+
   Throws on IO errors."
   ([url] (input-stream url nil))
   ([url {:keys [connect-timeout read-timeout follow-redirects? authenticator request-headers]

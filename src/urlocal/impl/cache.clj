@@ -80,6 +80,16 @@
                              :downloaded-at   now
                              :last-checked-at now}))))
 
+(defn remove-cache-entry!
+  "Removes the cache entry for a single URL, if it exists. Returns nil.
+
+  Throws on IO errors."
+  [url]
+  (let [content-file  (url->content-file url)
+        metadata-file (url->metadata-file url)]
+    (when content-file  (.delete content-file))
+    (when metadata-file (.delete metadata-file))))
+
 (defmulti seconds-since
   "Returns how many seconds have passed since inst (a Date or Temporal), or nil
   if inst is nil."
@@ -98,6 +108,7 @@
   [^java.util.Date d]
   (seconds-since (.toInstant d)))
 
+#_{:clj-kondo/ignore [:unused-binding {:exclude-destructured-keys-in-fn-args true}]}
 (defn http-get
   "Perform an HTTP get request for the given URL, using the given options,
   returning an HTTPUrlConnection object.
@@ -116,7 +127,7 @@
                       (.setRequestMethod           "GET")
                       (.setConnectTimeout          connect-timeout)
                       (.setReadTimeout             read-timeout)
-                      (.setInstanceFollowRedirects follow-redirects?))]
+                      (.setInstanceFollowRedirects false))]  ; Note: we handle redirects ourselves, to ensure cache coherence
        (when authenticator (.setAuthenticator conn authenticator))
        (run! #(.setRequestProperty conn (key %) (val %)) request-headers)
        (.connect conn)
@@ -127,25 +138,41 @@
   caching it locally, and also capturing metadata from the response for the
   purposes of cache management in the future.
 
-  Throws on IO errors."
-  [url opts]
-  (let [content-file (url->content-file url)
-        conn         (http-get url opts)]
-    (log/debug (str "Cache miss for " url " - downloading..."))
+  Throws on IO errors or unexpected HTTP status code responses."
+  ([url opts] (cache-miss! url false opts))
+  ([url already-redirected? {:keys [follow-redirects?] :or {follow-redirects? false} :as opts}]
+   (let [content-file  (url->content-file url)
+         conn          (http-get url opts)
+         response-code (.getResponseCode conn)]
+     (if (= response-code java.net.HttpURLConnection/HTTP_OK)
+       (do
+         (log/debug (str "Cache miss for " url " - downloading..."))
+         (io/copy (.getInputStream conn) (io/output-stream (io/file content-file)))
+         (write-metadata! url conn))
+       (if (and follow-redirects?
+                (not already-redirected?)  ; Make sure we don't follow more than one redirect...
+                (or (= response-code java.net.HttpURLConnection/HTTP_MOVED_PERM)
+                    (= response-code java.net.HttpURLConnection/HTTP_MOVED_TEMP)))
+         (do
+           (remove-cache-entry! url)  ; Remove any cache entries for the URL, since it's no longer serving content
+           (cache-miss! (io/as-url (.getHeaderField conn "Location")) true opts))
+         (throw (ex-info (str "Unexpected HTTP response from " url ": " response-code) {})))))
+   nil))
 
-    (if (= (.getResponseCode conn) java.net.HttpURLConnection/HTTP_OK)
-      (do
-        (io/copy (.getInputStream conn) (io/output-stream (io/file content-file)))
-        (write-metadata! url conn))
-      (throw (ex-info (str "Unexpected HTTP response from " url ": " (.getResponseCode conn)) {}))))
-  nil)
+(defn cache-hit!
+  "Handles a cache hit, by updating the :last-checked-at metadata.
+
+  Throws on IO errors."
+  [url metadata-file metadata]
+  (log/debug (str "Cache hit - cached copy of " url " is up to date."))
+  (write-metadata-file! metadata-file (assoc metadata :last-checked-at (java.util.Date.))))
 
 (defn check-cache!
   "Handles a potential cache hit, by determining whether the cached content
   needs to be checked for staleness via an ETag request, or whether it can
   simply be served directly.
 
-  Throws on IO errors."
+  Throws on IO errors or unexpected HTTP status code responses."
   [^java.net.URL url {:keys [request-headers] :as opts}]
   (let [metadata-file            (url->metadata-file url)
         metadata                 (edn/read-string (slurp metadata-file))
@@ -156,11 +183,8 @@
         (log/debug (str "Cache check interval interval exceeded; checking cached copy of " url " for staleness..."))
 
         (if (= (.getResponseCode conn) java.net.HttpURLConnection/HTTP_NOT_MODIFIED)
-          (do
-            (log/debug (str "Cache hit - cached copy of " url " is not stale."))
-            (write-metadata-file! metadata-file (assoc metadata :last-checked-at (java.util.Date.))))
-          ; Handle a stale cache entry as a cache miss
-          (cache-miss! url opts)))
+          (cache-hit! url metadata-file metadata)
+          (cache-miss! url opts)))  ; Handle a stale cache entry as a cache miss
       (log/debug (str "Cache hit - within cache check interval; skipped staleness check for cached copy of " url))))
   nil)
 
