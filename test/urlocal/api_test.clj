@@ -17,13 +17,31 @@
 ;
 
 (ns urlocal.api-test
-  (:require [clojure.test :refer [deftest testing is]]
-            [urlocal.api  :refer [set-cache-name! reset-cache! set-cache-check-interval-secs! input-stream]]))
+  (:require [urlocal.impl.cache :as uic]
+            [clojure.test       :refer [deftest testing is]]
+            [urlocal.api        :refer [set-cache-name! reset-cache! set-cache-check-interval-secs! input-stream]]))
 
 (set-cache-name! "urlocal-tests")
 (reset-cache!)
 
+(defn valid-cached-response?
+  [url is]
+  (and (not (nil? is))
+       (instance? java.io.InputStream is)
+       (.exists (uic/url->content-file  url))
+       (.exists (uic/url->metadata-file url))))
+
 (deftest input-stream-tests
   (testing "nil, blank, etc."
     (is (nil?                                   (input-stream nil)))
-    (is (thrown? java.net.MalformedURLException (input-stream "")))))
+    (is (thrown? java.net.MalformedURLException (input-stream ""))))
+  (testing "Invalid URLs"
+    (is (thrown? java.io.IOException            (input-stream "http://INVALID_HOST_THAT_DOES_NOT_EXIST.local/"))))
+  (testing "Valid URLs - cache miss"
+    (is (valid-cached-response? "https://spdx.org/licenses/licenses.json" (input-stream "https://spdx.org/licenses/licenses.json"))))
+  (testing "Valid URLs - within cache interval period"
+    (is (valid-cached-response? "https://spdx.org/licenses/licenses.json" (input-stream "https://spdx.org/licenses/licenses.json"))))
+  (testing "Valid URLs - outside cache interval period, but cache hit"
+    (set-cache-check-interval-secs! 0)
+    (Thread/sleep 1000)  ; Make sure we have at least a once second gap between cache checks
+    (is (valid-cached-response? "https://spdx.org/licenses/licenses.json" (input-stream "https://spdx.org/licenses/licenses.json")))))

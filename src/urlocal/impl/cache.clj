@@ -71,11 +71,11 @@
   Note: does nothing if the connection did not return an ETag - this ensures
   that future requests to the same URL will always be treated as a cache miss."
   [url ^java.net.HttpURLConnection conn]
-  (let [now  (java.time.Instant/now)
+  (let [now  (java.util.Date.)
         etag (.getHeaderField conn "ETag")]
     (when-not (s/blank? etag)
       (write-metadata-file! (url->metadata-file url)
-                            {:url             url
+                            {:url             (str url)
                              :etag            etag
                              :downloaded-at   now
                              :last-checked-at now}))))
@@ -87,7 +87,8 @@
   type)
 
 (defmethod seconds-since nil
-  [_])
+  [_]
+  Long/MAX_VALUE)
 
 (defmethod seconds-since java.time.Instant
   [^java.time.Instant inst]
@@ -146,31 +147,33 @@
 
   Throws on IO errors."
   [^java.net.URL url {:keys [request-headers] :as opts}]
-  (let [metadata-file (url->metadata-file url)
-        metadata      (edn/read-string (slurp metadata-file))
-        last-checked  (:last-checked-at metadata)]
-    (if (or (nil? last-checked)
-            (> (seconds-since last-checked) @cache-check-interval-secs-a))
+  (let [metadata-file            (url->metadata-file url)
+        metadata                 (edn/read-string (slurp metadata-file))
+        last-checked             (:last-checked-at metadata)
+        seconds-since-last-check (seconds-since last-checked)]
+    (if (> seconds-since-last-check @cache-check-interval-secs-a)
       (let [conn (http-get url (assoc opts :request-headers (assoc request-headers "If-None-Match" (:etag metadata))))]
-        (log/debug (str "Cache check interval interval exceeded; checking cached version of " url " for staleness..."))
+        (log/debug (str "Cache check interval interval exceeded; checking cached copy of " url " for staleness..."))
 
         (if (= (.getResponseCode conn) java.net.HttpURLConnection/HTTP_NOT_MODIFIED)
           (do
-            (log/debug (str "Cache hit for " url))
-            (write-metadata-file! metadata-file (assoc metadata :last-checked-at (java.time.Instant/now))))
+            (log/debug (str "Cache hit - cached copy of " url " is not stale."))
+            (write-metadata-file! metadata-file (assoc metadata :last-checked-at (java.util.Date.))))
           ; Handle a stale cache entry as a cache miss
           (cache-miss! url opts)))
-      (log/debug (str "Within cache check interval; skipping staleness check for cached version of " url))))
+      (log/debug (str "Cache hit - within cache check interval; skipped staleness check for cached copy of " url))))
   nil)
 
 (defn prep-cache!
   "Ensures the cache is populated for the given url."
   [^java.net.URL url opts]
-  (let [cached-content-file  (url->content-file url)
-        cached-metadata-file (url->metadata-file url)]
-    (if (and cached-content-file
-             cached-metadata-file
-             (.exists cached-content-file)
-             (.exists cached-metadata-file))
-      (check-cache! url opts)
-      (cache-miss! url opts))))
+  (when url
+    (when-not (.exists (io/file @cache-dir-a)) (io/make-parents (io/file @cache-dir-a "dummy.txt")))
+    (let [cached-content-file  (url->content-file url)
+          cached-metadata-file (url->metadata-file url)]
+      (if (and cached-content-file
+               cached-metadata-file
+               (.exists cached-content-file)
+               (.exists cached-metadata-file))
+        (check-cache! url opts)
+        (cache-miss! url opts)))))
