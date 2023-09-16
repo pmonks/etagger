@@ -38,18 +38,15 @@
     reading content over the socket before timing out
   * `:follows-redirects?` (boolean, default=false): whether to follow redirects
     (HTTP status codes 301, 302) if the server issues one
-  * `:authenticator` (`java.net.Authenticator`, default=nil): an authenticator
-    object to use for the request
   * `:request-headers` (map with string keys and values): a map of request
     headers to send along with the request
 
   Throws on IO errors."
   ([url] (input-stream url nil))
-  ([url {:keys [connect-timeout read-timeout follow-redirects? authenticator request-headers]
+  ([url {:keys [connect-timeout read-timeout follow-redirects? request-headers]
          :or   {connect-timeout   1000
                 read-timeout      1000
                 follow-redirects? false
-                authenticator     nil
                 request-headers   {"User-Agent" "com.github.pmonks/urlocal"}}
          :as   opts}]
    (when-let [u (io/as-url url)]

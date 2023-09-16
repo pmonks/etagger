@@ -116,11 +116,10 @@
   Throws on IO errors."
   (^java.net.HttpURLConnection [^java.net.URL url] (http-get url nil))
   (^java.net.HttpURLConnection [^java.net.URL url
-                                {:keys [connect-timeout read-timeout follow-redirects? authenticator request-headers]
+                                {:keys [connect-timeout read-timeout follow-redirects? request-headers]
                                  :or   {connect-timeout   1000
                                         read-timeout      1000
                                         follow-redirects? false
-                                        authenticator     nil
                                         request-headers   {"User-Agent" "com.github.pmonks/urlocal"}}}]
    (when url
      (let [conn (doto ^java.net.HttpURLConnection  (.openConnection url)
@@ -128,7 +127,6 @@
                       (.setConnectTimeout          connect-timeout)
                       (.setReadTimeout             read-timeout)
                       (.setInstanceFollowRedirects false))]  ; Note: we handle redirects ourselves, to ensure cache coherence
-       (when authenticator (.setAuthenticator conn authenticator))
        (run! #(.setRequestProperty conn (key %) (val %)) request-headers)
        (.connect conn)
        conn))))
