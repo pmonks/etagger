@@ -62,7 +62,7 @@
   * name must not be blank.
   * the new cache may not be empty if it was previously populated.
   * setting a new name after a previously named cache has already been populated
-    will 'orphan' the prior cache. To avoid this, you should call [[reset-cache!]]
+    will 'orphan' the prior cache. To avoid this, you should call `reset-cache!`
     prior to setting a new name."
   [^String name]
   (when-not (s/blank? name)
@@ -80,6 +80,13 @@
     (when (and (.exists cache-dir)
                (.isDirectory cache-dir))
       (run! #(.delete ^java.io.File %) (reverse (file-seq cache-dir))))))
+
+(defn remove-cache-entry!
+  "Removes the cache entry for a single URL, if it exists. Returns nil.
+
+  Throws on IO errors."
+  [url]
+  (uic/remove-cache-entry! url))
 
 (defn set-cache-check-interval-secs!
   "Sets the cache check interval, in seconds.  Default is 86,400 (24 hours)."

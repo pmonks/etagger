@@ -19,7 +19,7 @@
 (ns urlocal.api-test
   (:require [urlocal.impl.cache :as uic]
             [clojure.test       :refer [deftest testing is]]
-            [urlocal.api        :refer [set-cache-name! reset-cache! set-cache-check-interval-secs! input-stream]]))
+            [urlocal.api        :refer [set-cache-name! reset-cache! remove-cache-entry! set-cache-check-interval-secs! input-stream]]))
 
 (set-cache-name! "urlocal-tests")
 (reset-cache!)

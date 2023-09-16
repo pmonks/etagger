@@ -88,7 +88,8 @@
   (let [content-file  (url->content-file url)
         metadata-file (url->metadata-file url)]
     (when content-file  (.delete content-file))
-    (when metadata-file (.delete metadata-file))))
+    (when metadata-file (.delete metadata-file)))
+  nil)
 
 (defmulti seconds-since
   "Returns how many seconds have passed since inst (a Date or Temporal), or nil
