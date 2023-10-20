@@ -32,4 +32,5 @@
                                            :connection           "scm:git:git://github.com/pmonks/urlocal.git"
                                            :developer-connection "scm:git:ssh://git@github.com/pmonks/urlocal.git"
                                            :tag                  (tc/git-tag-or-hash)}
-                        :issue-management {:system "github" :url "https://github.com/pmonks/urlocal/issues"}}))
+                        :issue-management {:system "github" :url "https://github.com/pmonks/urlocal/issues"}}
+         :codox        {:namespaces ['urlocal.api]}))

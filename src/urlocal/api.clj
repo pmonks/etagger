@@ -34,8 +34,6 @@
     establishing the socket connection before timing out
   * `:read-timeout` (int, default=1000): the number of milliseconds to wait when
     reading content over the socket before timing out
-  * `:read-timeout` (int, default=1000): the number of milliseconds to wait when
-    reading content over the socket before timing out
   * `:follows-redirects?` (boolean, default=false): whether to follow redirects
     (HTTP status codes 301, 302) if the server issues one
   * `:request-headers` (map with string keys and values): a map of request
