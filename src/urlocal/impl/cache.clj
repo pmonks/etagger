@@ -92,8 +92,8 @@
   nil)
 
 (defmulti seconds-since
-  "Returns how many seconds have passed since inst (a Date or Temporal), or nil
-  if inst is nil."
+  "Returns how many seconds have passed since inst (a Date or Temporal), or
+  Long/MAX_VALUE if inst is nil."
   {:arglists '([inst])}
   type)
 
@@ -135,7 +135,7 @@
 (defn cache-miss!
   "Handles a cache miss, by downloading the content for the given url and
   caching it locally, and also capturing metadata from the response for the
-  purposes of cache management in the future.
+  purposes of cache management.
 
   Throws on IO errors or unexpected HTTP status code responses."
   ([url opts] (cache-miss! url false opts))
