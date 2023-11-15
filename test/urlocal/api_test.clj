@@ -21,6 +21,7 @@
             [clojure.test       :refer [deftest testing is]]
             [urlocal.api        :refer [set-cache-name! reset-cache! remove-cache-entry! set-cache-check-interval-secs! input-stream]]))
 
+; Make sure we reset (delete) the cache before we run the tests
 (set-cache-name! "urlocal-tests")
 (reset-cache!)
 

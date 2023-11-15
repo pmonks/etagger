@@ -25,7 +25,7 @@
 (def cache-home
   "The base location of the XDG 'cache home' directory, as per the specification.
   Does not include include any application-specific sub-directories, and always
-  ends with a path separater character."
+  ends with a path separator character."
   (let [xdg-cache-home (System/getenv "XDG_CACHE_HOME")]
     (if (s/blank? xdg-cache-home)
       (str (System/getProperty "user.home") java.io.File/separator ".cache" java.io.File/separator)

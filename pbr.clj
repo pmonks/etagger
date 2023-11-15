@@ -21,7 +21,7 @@
   [opts]
   (assoc opts
          :lib          'com.github.pmonks/urlocal
-         :version      (pbr/calculate-version 0 1)
+         :version      (pbr/calculate-version 1 0)
          :write-pom    true
          :validate-pom true
          :pom          {:description      "A Clojure micro-library for cached (ETag based) URL downloads "
@@ -32,4 +32,5 @@
                                            :connection           "scm:git:git://github.com/pmonks/urlocal.git"
                                            :developer-connection "scm:git:ssh://git@github.com/pmonks/urlocal.git"
                                            :tag                  (tc/git-tag-or-hash)}
-                        :issue-management {:system "github" :url "https://github.com/pmonks/urlocal/issues"}}))
+                        :issue-management {:system "github" :url "https://github.com/pmonks/urlocal/issues"}}
+         :codox        {:namespaces ['urlocal.api]}))

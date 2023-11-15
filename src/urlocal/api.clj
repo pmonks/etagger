@@ -25,15 +25,13 @@
 
 #_{:clj-kondo/ignore [:unused-binding {:exclude-destructured-keys-in-fn-args true}]}
 (defn input-stream
-  "Returns an InputStream for potentially cached content retrieved from url (a
-  String, java.net.URL or java.net.URI), or nil if url is nil or unsupported
-  (i.e. is not an http(s) URL).
+  "Returns an InputStream for the content retrieved from url (a String,
+  java.net.URL or java.net.URI) and caching it, or nil if url is nil or
+  unsupported (i.e. is not an http(s) URL).
 
   The options map provides these tunables, all of them optional:
   * `:connect-timeout` (int, default=1000): the number of milliseconds to wait when
     establishing the socket connection before timing out
-  * `:read-timeout` (int, default=1000): the number of milliseconds to wait when
-    reading content over the socket before timing out
   * `:read-timeout` (int, default=1000): the number of milliseconds to wait when
     reading content over the socket before timing out
   * `:follows-redirects?` (boolean, default=false): whether to follow redirects
@@ -63,7 +61,9 @@
   * the new cache may not be empty if it was previously populated.
   * setting a new name after a previously named cache has already been populated
     will 'orphan' the prior cache. To avoid this, you should call `reset-cache!`
-    prior to setting a new name."
+    prior to setting a new name.
+
+  Throws on IO errors."
   [^String name]
   (when-not (s/blank? name)
     (let [cache-dir (str xdg/cache-home name)]
