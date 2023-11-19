@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        java-version: [ 8, 11, 17, 21 ]  # Note: cannot include Java 8 as pbr (via lice-comb) no longer supports it
+        java-version: [ 8, 11, 17, 21 ]
 
     steps:
       - uses: actions/checkout@v4
