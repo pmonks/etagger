@@ -27,8 +27,7 @@ While ETag-based caching logic is simple, well understood, and widely documented
 #### Clojure CLI
 
 ```shell
-$ # Where #.#.# is replaced with an actual version number (see badge above)
-$ clj -Sdeps '{:deps {com.github.pmonks/urlocal {:mvn/version "#.#.#"}}}'
+$ clj -Sdeps '{:deps {com.github.pmonks/urlocal {:mvn/version "RELEASE"}}}'
 ```
 
 #### Leiningen
