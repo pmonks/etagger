@@ -141,7 +141,7 @@
   * a HttpURLConnection, in which case it is assumed to already be connected
 
   Throws on IO errors or unexpected HTTP status code responses."
-  {:arglists '([source opts])}
+  {:arglists '([source opts] [source already-redirected? opts])}
   (fn [source & _] (type source)))
 
 (defmethod cache-miss! java.net.HttpURLConnection
