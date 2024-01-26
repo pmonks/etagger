@@ -111,7 +111,7 @@
 
 #_{:clj-kondo/ignore [:unused-binding {:exclude-destructured-keys-in-fn-args true}]}
 (defn http-get
-  "Perform an HTTP get request for the given URL, using the given options,
+  "Perform an HTTP GET request for the given URL, using the given options,
   returning an HTTPUrlConnection object.
 
   Throws on IO errors."
@@ -132,20 +132,26 @@
        (.connect conn)
        conn))))
 
-(defn cache-miss!
-  "Handles a cache miss, by downloading the content for the given url and
-  caching it locally, and also capturing metadata from the response for the
-  purposes of cache management.
+(defmulti cache-miss!
+  "Handles a cache miss, by caching content locally and capturing metadata from
+  the response for the purposes of cache management.
+
+  source may be:
+  * a URL, in which case an HTTP GET request is made
+  * a HttpURLConnection, in which case it is assumed to already be connected
 
   Throws on IO errors or unexpected HTTP status code responses."
-  ([url opts] (cache-miss! url false opts))
-  ([url already-redirected? {:keys [follow-redirects?] :or {follow-redirects? false} :as opts}]
-   (let [content-file  (url->content-file url)
-         conn          (http-get url opts)
+  {:arglists '([source opts] [source already-redirected? opts])}
+  (fn [source & _] (type source)))
+
+(defmethod cache-miss! java.net.HttpURLConnection
+  ([^java.net.HttpURLConnection conn opts] (cache-miss! conn false opts))
+  ([^java.net.HttpURLConnection conn already-redirected? {:keys [follow-redirects?] :or {follow-redirects? false} :as opts}]
+   (let [url           (.getURL conn)
+         content-file  (url->content-file url)
          response-code (.getResponseCode conn)]
      (if (= response-code java.net.HttpURLConnection/HTTP_OK)
        (do
-         (log/debug (str "Cache miss for " url " - downloading..."))
          (io/copy (.getInputStream conn) (io/output-stream (io/file content-file)))
          (write-metadata! url conn))
        (if (and follow-redirects?
@@ -157,6 +163,10 @@
            (cache-miss! (io/as-url (.getHeaderField conn "Location")) true opts))
          (throw (ex-info (str "Unexpected HTTP response from " url ": " response-code) {})))))
    nil))
+
+(defmethod cache-miss! java.net.URL
+  [^java.net.URL url opts]
+  (cache-miss! (http-get url opts) opts))
 
 (defn cache-hit!
   "Handles a cache hit, by updating the :last-checked-at metadata.
@@ -172,7 +182,7 @@
   simply be served directly.
 
   Throws on IO errors or unexpected HTTP status code responses."
-  [^java.net.URL url {:keys [request-headers] :as opts}]
+  [^java.net.URL url {:keys [request-headers return-cached-content-on-exception?] :as opts}]
   (let [metadata-file            (url->metadata-file url)
         metadata                 (edn/read-string (slurp metadata-file))
         last-checked             (:last-checked-at metadata)
@@ -183,7 +193,7 @@
 
         (if (= (.getResponseCode conn) java.net.HttpURLConnection/HTTP_NOT_MODIFIED)
           (cache-hit! url metadata-file metadata)
-          (cache-miss! url opts)))  ; Handle a stale cache entry as a cache miss
+          (cache-miss! conn opts)))  ; Handle a stale cache entry as a cache miss
       (log/debug (str "Cache hit - within cache check interval; skipped staleness check for cached copy of " url))))
   nil)
 
