@@ -87,8 +87,8 @@
   [url]
   (let [content-file  (url->content-file url)
         metadata-file (url->metadata-file url)]
-    (when content-file  (.delete content-file))
-    (when metadata-file (.delete metadata-file)))
+    (when (and content-file  (.exists content-file))  (.delete content-file))
+    (when (and metadata-file (.exists metadata-file)) (.delete metadata-file)))
   nil)
 
 (defmulti seconds-since
@@ -212,8 +212,8 @@
     (let [cached-content-file  (url->content-file url)
           cached-metadata-file (url->metadata-file url)]
       (if (and cached-content-file
-               cached-metadata-file
                (.exists cached-content-file)
+               cached-metadata-file
                (.exists cached-metadata-file))
         (check-cache! url opts)
         (cache-miss! url opts)))))
