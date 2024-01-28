@@ -41,8 +41,8 @@
   (testing "Valid URLs - cache miss"
     (is (valid-cached-response? "https://spdx.org/licenses/licenses.json" (input-stream "https://spdx.org/licenses/licenses.json"))))
   (testing "Valid URLs - within cache interval period"
-    (is (valid-cached-response? "https://spdx.org/licenses/licenses.json" (input-stream "https://spdx.org/licenses/licenses.json"))))
+    (is (valid-cached-response? "https://spdx.org/licenses/exceptions.json" (input-stream "https://spdx.org/licenses/exceptions.json"))))
   (testing "Valid URLs - outside cache interval period, but cache hit"
     (set-cache-check-interval-secs! 0)
     (Thread/sleep 1000)  ; Make sure we have at least a once second gap between cache checks
-    (is (valid-cached-response? "https://spdx.org/licenses/licenses.json" (input-stream "https://spdx.org/licenses/licenses.json")))))
+    (is (valid-cached-response? "https://spdx.org/licenses/equivalentwords.txt" (input-stream "https://spdx.org/licenses/equivalentwords.txt")))))

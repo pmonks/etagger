@@ -65,13 +65,13 @@
     (spit f (pr-str m))))
 
 (defn write-metadata!
-  "Writes out a metadata file for the given url, using the open connection for
-  that url.
+  "Writes out a metadata file for the given open connection.
 
   Note: does nothing if the connection did not return an ETag - this ensures
   that future requests to the same URL will always be treated as a cache miss."
-  [url ^java.net.HttpURLConnection conn]
-  (let [now  (java.util.Date.)
+  [^java.net.HttpURLConnection conn]
+  (let [url  (.getURL conn)
+        now  (java.util.Date.)
         etag (.getHeaderField conn "ETag")]
     (when-not (s/blank? etag)
       (write-metadata-file! (url->metadata-file url)
@@ -111,7 +111,7 @@
 
 #_{:clj-kondo/ignore [:unused-binding {:exclude-destructured-keys-in-fn-args true}]}
 (defn http-get
-  "Perform an HTTP get request for the given URL, using the given options,
+  "Perform an HTTP GET request for the given URL, using the given options,
   returning an HTTPUrlConnection object.
 
   Throws on IO errors."
@@ -132,22 +132,28 @@
        (.connect conn)
        conn))))
 
-(defn cache-miss!
-  "Handles a cache miss, by downloading the content for the given url and
-  caching it locally, and also capturing metadata from the response for the
-  purposes of cache management.
+(defmulti cache-miss!
+  "Handles a cache miss, by caching content locally and capturing metadata from
+  the response for the purposes of cache management.
+
+  source may be:
+  * a URL, in which case an HTTP GET request is made
+  * a HttpURLConnection, in which case it is assumed to already be connected
 
   Throws on IO errors or unexpected HTTP status code responses."
-  ([url opts] (cache-miss! url false opts))
-  ([url already-redirected? {:keys [follow-redirects?] :or {follow-redirects? false} :as opts}]
-   (let [content-file  (url->content-file url)
-         conn          (http-get url opts)
+  {:arglists '([source opts] [source already-redirected? opts])}
+  (fn [source & _] (type source)))
+
+(defmethod cache-miss! java.net.HttpURLConnection
+  ([^java.net.HttpURLConnection conn opts] (cache-miss! conn false opts))
+  ([^java.net.HttpURLConnection conn already-redirected? {:keys [follow-redirects?] :or {follow-redirects? false} :as opts}]
+   (let [url           (.getURL conn)
+         content-file  (url->content-file url)
          response-code (.getResponseCode conn)]
      (if (= response-code java.net.HttpURLConnection/HTTP_OK)
        (do
-         (log/debug (str "Cache miss for " url " - downloading..."))
          (io/copy (.getInputStream conn) (io/output-stream (io/file content-file)))
-         (write-metadata! url conn))
+         (write-metadata! conn))
        (if (and follow-redirects?
                 (not already-redirected?)  ; Make sure we don't follow more than one redirect...
                 (or (= response-code java.net.HttpURLConnection/HTTP_MOVED_PERM)
@@ -158,33 +164,44 @@
          (throw (ex-info (str "Unexpected HTTP response from " url ": " response-code) {})))))
    nil))
 
+(defmethod cache-miss! java.net.URL
+  [^java.net.URL url opts]
+  (cache-miss! (http-get url opts) opts))
+
 (defn cache-hit!
-  "Handles a cache hit, by updating the :last-checked-at metadata.
+  "Handles a cache hit, by updating the :last-checked-at metadata.  Assumes that
+  the cache is already populated with the given URL.
 
   Throws on IO errors."
   [url metadata-file metadata]
-  (log/debug (str "Cache hit - cached copy of " url " is up to date."))
+  (log/debugf "Cache hit - cached copy of %s is up to date." (str url))
   (write-metadata-file! metadata-file (assoc metadata :last-checked-at (java.util.Date.))))
 
 (defn check-cache!
   "Handles a potential cache hit, by determining whether the cached content
   needs to be checked for staleness via an ETag request, or whether it can
-  simply be served directly.
+  simply be served directly.  Assumes that the cache is already populated with
+  the given URL.
 
   Throws on IO errors or unexpected HTTP status code responses."
-  [^java.net.URL url {:keys [request-headers] :as opts}]
+  [^java.net.URL url {:keys [request-headers return-cached-content-on-exception?] :as opts}]
   (let [metadata-file            (url->metadata-file url)
         metadata                 (edn/read-string (slurp metadata-file))
         last-checked             (:last-checked-at metadata)
         seconds-since-last-check (seconds-since last-checked)]
     (if (> seconds-since-last-check @cache-check-interval-secs-a)
-      (let [conn (http-get url (assoc opts :request-headers (assoc request-headers "If-None-Match" (:etag metadata))))]
-        (log/debug (str "Cache check interval interval exceeded; checking cached copy of " url " for staleness..."))
+      (try
+        (let [conn (http-get url (assoc opts :request-headers (assoc request-headers "If-None-Match" (:etag metadata))))]
+          (log/debugf "Cache check interval exceeded; checking cached copy of %s for staleness..." (str url))
 
-        (if (= (.getResponseCode conn) java.net.HttpURLConnection/HTTP_NOT_MODIFIED)
-          (cache-hit! url metadata-file metadata)
-          (cache-miss! url opts)))  ; Handle a stale cache entry as a cache miss
-      (log/debug (str "Cache hit - within cache check interval; skipped staleness check for cached copy of " url))))
+          (if (= (.getResponseCode conn) java.net.HttpURLConnection/HTTP_NOT_MODIFIED)
+            (cache-hit! url metadata-file metadata)
+            (cache-miss! conn opts)))  ; Handle a stale cache entry as a cache miss
+        (catch Exception e
+          (if return-cached-content-on-exception?
+            (log/warnf e "Unexpected exception while checking %s for staleness. Potentially stale cached content will be used." (str url))
+            (throw e))))
+      (log/debug "Cache hit - within cache check interval; skipped staleness check for cached copy of" (str url))))
   nil)
 
 (defn prep-cache!

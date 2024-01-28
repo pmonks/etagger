@@ -22,11 +22,12 @@
   (assoc opts
          :lib          'com.github.pmonks/urlocal
          :version      (pbr/calculate-version 1 0)
+         :prod-branch  "release"
          :write-pom    true
          :validate-pom true
          :pom          {:description      "A Clojure micro-library for cached (ETag based) URL downloads "
                         :url              "https://github.com/pmonks/urlocal"
-                        :licenses         [:license   {:name "Apache License 2.0" :url "http://www.apache.org/licenses/LICENSE-2.0.html"}]
+                        :licenses         [:license   {:name "Apache-2.0" :url "http://www.apache.org/licenses/LICENSE-2.0.html"}]
                         :developers       [:developer {:id "pmonks" :name "Peter Monks" :email "pmonks+urlocal@gmail.com"}]
                         :scm              {:url                  "https://github.com/pmonks/urlocal"
                                            :connection           "scm:git:git://github.com/pmonks/urlocal.git"

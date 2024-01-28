@@ -30,22 +30,27 @@
   unsupported (i.e. is not an http(s) URL).
 
   The options map provides these tunables, all of them optional:
-  * `:connect-timeout` (int, default=1000): the number of milliseconds to wait when
-    establishing the socket connection before timing out
+  * `:connect-timeout` (int, default=1000): the number of milliseconds to wait
+    when establishing the socket connection before timing out
   * `:read-timeout` (int, default=1000): the number of milliseconds to wait when
     reading content over the socket before timing out
-  * `:follows-redirects?` (boolean, default=false): whether to follow redirects
-    (HTTP status codes 301, 302) if the server issues one
+  * `:follows-redirects?` (boolean, default=false): whether to follow a single
+    redirect (HTTP status codes 301, 302) if the server issues one (more than
+    one redirect will throw an exception)
   * `:request-headers` (map with string keys and values): a map of request
     headers to send along with the request
+  * `return-cached-content-on-exception?` (boolean, default=true): whether
+    (potentially stale) cached content should be returned if it's available, and
+    an exception occurs while checking for staleness
 
   Throws on IO errors."
   ([url] (input-stream url nil))
-  ([url {:keys [connect-timeout read-timeout follow-redirects? request-headers]
-         :or   {connect-timeout   1000
-                read-timeout      1000
-                follow-redirects? false
-                request-headers   {"User-Agent" "com.github.pmonks/urlocal"}}
+  ([url {:keys [connect-timeout read-timeout follow-redirects? request-headers return-cached-content-on-exception?]
+         :or   {connect-timeout                     1000
+                read-timeout                        1000
+                follow-redirects?                   false
+                request-headers                     {"User-Agent" "com.github.pmonks/urlocal"}
+                return-cached-content-on-exception? true}
          :as   opts}]
    (when-let [u (io/as-url url)]
      (when (s/starts-with? (s/lower-case (.getProtocol u)) "http")
