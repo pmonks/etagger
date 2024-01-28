@@ -22,6 +22,7 @@
   (assoc opts
          :lib          'com.github.pmonks/urlocal
          :version      (pbr/calculate-version 1 0)
+         :prod-branch  "release"
          :write-pom    true
          :validate-pom true
          :pom          {:description      "A Clojure micro-library for cached (ETag based) URL downloads "
