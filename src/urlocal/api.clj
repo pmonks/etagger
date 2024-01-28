@@ -44,7 +44,7 @@
 
   Throws on IO errors."
   ([url] (input-stream url nil))
-  ([url {:keys [connect-timeout read-timeout follow-redirects? request-headers]
+  ([url {:keys [connect-timeout read-timeout follow-redirects? request-headers return-cached-content-on-exception?]
          :or   {connect-timeout                     1000
                 read-timeout                        1000
                 follow-redirects?                   false
