@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" strict="true">
+  <Appenders>
+    <Appender type="Console" name="Console">
+      <Layout type="PatternLayout" pattern="%d %p [%t] %m%n" />
+    </Appender>
+  </Appenders>
+  <Loggers>
+    <Logger name="org.apache" level="FATAL">
+      <AppenderRef ref="Console"/>
+    </Logger>
+    <Logger name="org.eclipse" level="FATAL">
+      <AppenderRef ref="Console"/>
+    </Logger>
+    <Logger name="urlocal" level="TRACE">
+      <AppenderRef ref="Console"/>
+    </Logger>
+    <Root level="WARN">
+      <AppenderRef ref="Console"/>
+    </Root>
+  </Loggers>
+</Configuration>

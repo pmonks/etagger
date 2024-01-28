@@ -53,4 +53,4 @@
   (testing "nil"
     (is (nil? (prep-cache! nil nil))))
   (testing "Valid URLs"
-    (is (true? (prep-and-check-url-was-cached? (io/as-url "https://spdx.org/licenses/exceptions.json"))))))  ; Note: need to make sure this URL hasn't been used in a previous test
+    (is (true? (prep-and-check-url-was-cached? (io/as-url "https://raw.githubusercontent.com/spdx/license-list-data/main/template/Apache-2.0.template.txt"))))))  ; Note: need to make sure this URL hasn't been used in a previous test
