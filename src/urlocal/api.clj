@@ -34,8 +34,9 @@
     when establishing the socket connection before timing out
   * `:read-timeout` (int, default=1000): the number of milliseconds to wait when
     reading content over the socket before timing out
-  * `:follows-redirects?` (boolean, default=false): whether to follow redirects
-    (HTTP status codes 301, 302) if the server issues one
+  * `:follows-redirects?` (boolean, default=false): whether to follow a single
+    redirect (HTTP status codes 301, 302) if the server issues one (more than
+    one redirect will throw an exception)
   * `:request-headers` (map with string keys and values): a map of request
     headers to send along with the request
   * `return-cached-content-on-exception?` (boolean, default=true): whether
