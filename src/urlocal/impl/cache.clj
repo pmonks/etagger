@@ -147,7 +147,7 @@
             nil    ; Not an integer either, so give up
             retry-after-seconds))
         (let [now (.getTime       (java.util.Date.))
-              retry-after-seconds (Math/round (double (/ (- now retry-after-epoch) 1000)))]
+              retry-after-seconds (Math/ceil (double (/ (- now retry-after-epoch) 1000)))]
           (if (neg? retry-after-seconds)
             nil
             retry-after-seconds))))))
