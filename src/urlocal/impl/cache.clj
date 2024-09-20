@@ -128,40 +128,89 @@
                       (.setConnectTimeout          connect-timeout)
                       (.setReadTimeout             read-timeout)
                       (.setInstanceFollowRedirects false))]  ; Note: we handle redirects ourselves, to ensure cache coherence
-       (run! #(.setRequestProperty conn (key %) (val %)) request-headers)
+       (run! #(.setRequestProperty conn (key %) (val %)) (merge {"User-Agent" "com.github.pmonks/urlocal"} request-headers))  ; Note: ensure there's always a User-Agent header
        (.connect conn)
        conn))))
+
+(defn- get-retry-after-header
+  "Gets the HTTP Retry-After header value from conn (which can be either an
+  integer (# of seconds) or an HTTP date (as per RFC-2616)), returning a
+  positive integer number of seconds to wait before retrying, or nil if the
+  header doesn't exist, the value is invalid (malformed, negative, etc.)."
+  [^java.net.HttpURLConnection conn]
+  (when (.getHeaderField conn "Retry-After")
+    (let [retry-after-epoch (.getHeaderFieldDate conn "Retry-After " -1)]
+      (if (neg? retry-after-epoch)
+        ; Not a date, so try an integer
+        (let [retry-after-seconds (.getHeaderFieldLong conn "Retry-After" -1)]
+          (if (neg? retry-after-seconds)
+            nil    ; Not an integer either, so give up
+            retry-after-seconds))
+        (let [now (.getTime       (java.util.Date.))
+              retry-after-seconds (Math/round (double (/ (- now retry-after-epoch) 1000)))]
+          (if (neg? retry-after-seconds)
+            nil
+            retry-after-seconds))))))
 
 (defmulti cache-miss!
   "Handles a cache miss, by caching content locally and capturing metadata from
   the response for the purposes of cache management.
 
-  source may be:
-  * a URL, in which case an HTTP GET request is made
-  * a HttpURLConnection, in which case it is assumed to already be connected
+  `source` may be:
+
+  * a `java.net.URL`, in which case an HTTP GET request is made
+  * a `java.net.HttpURLConnection`, in which case it is assumed to already be
+    connected
 
   Throws on IO errors or unexpected HTTP status code responses."
-  {:arglists '([source opts] [source already-redirected? opts])}
+  {:arglists '([source opts] [source already-redirected? already-retried? opts])}
   (fn [source & _] (type source)))
 
 (defmethod cache-miss! java.net.HttpURLConnection
-  ([^java.net.HttpURLConnection conn opts] (cache-miss! conn false opts))
-  ([^java.net.HttpURLConnection conn already-redirected? {:keys [follow-redirects?] :or {follow-redirects? false} :as opts}]
-   (let [url           (.getURL conn)
+  ([^java.net.HttpURLConnection conn opts] (cache-miss! conn false false opts))
+  ([^java.net.HttpURLConnection conn
+                                already-redirected?
+                                already-retried?
+                                {:keys [follow-redirects? retry-when-throttled? max-retry-after]
+                                 :or   {follow-redirects?     false
+                                        retry-when-throttled? false
+                                        max-retry-after       10}
+                                 :as   opts}]
+   (let [url           (.getURL           conn)
          content-file  (url->content-file url)
-         response-code (.getResponseCode conn)]
-     (if (= response-code java.net.HttpURLConnection/HTTP_OK)
-       (do
-         (io/copy (.getInputStream conn) (io/output-stream (io/file content-file)))
-         (write-metadata! conn))
-       (if (and follow-redirects?
-                (not already-redirected?)  ; Make sure we don't follow more than one redirect...
-                (or (= response-code java.net.HttpURLConnection/HTTP_MOVED_PERM)
-                    (= response-code java.net.HttpURLConnection/HTTP_MOVED_TEMP)))
-         (do
-           (remove-cache-entry! url)  ; Remove any cache entries for the URL, since it's no longer serving content
-           (cache-miss! (io/as-url (.getHeaderField conn "Location")) true opts))
-         (throw (ex-info (str "Unexpected HTTP response from " url ": " response-code) {})))))
+         response-code (.getResponseCode  conn)]
+     (cond
+       ; Normal response (200)
+       (= response-code java.net.HttpURLConnection/HTTP_OK)
+         (let [is (.getInputStream conn)
+               os (io/output-stream (io/file content-file))]
+           (io/copy is os)
+           (write-metadata! conn))
+
+       ; Redirect (301/302)
+       (and follow-redirects?
+            (not already-redirected?)
+            (or (= response-code java.net.HttpURLConnection/HTTP_MOVED_PERM)
+                (= response-code java.net.HttpURLConnection/HTTP_MOVED_TEMP)))
+         (let [new-url (io/as-url (.getHeaderField conn "Location"))]
+           (remove-cache-entry! url)  ; Remove any cache entries for the original URL, since it's no longer serving content
+           (cache-miss! (http-get new-url opts) true already-retried? opts))
+
+       ; Throttled (429)
+       (and retry-when-throttled?
+            (not already-retried?)
+            (= response-code 429))   ; Note: java.net.HttpURLConnection doesn't have a symbolic constant for status code 429
+         (if-let [retry-after (get-retry-after-header conn)]
+           (if (<= retry-after max-retry-after)
+             (let [sleep-ms (long (* 1000 retry-after))]
+               (log/debugf "Request to %s throttled (429), sleeping %ds then retrying..." (str url) retry-after)
+               (Thread/sleep sleep-ms)
+               (cache-miss! (http-get url opts) already-redirected? true opts))
+             (throw (ex-info (str "Request to " url " throttled (429), but requested retry (" retry-after "s) was longer than maximum allowed (" max-retry-after "s).") (into {} (.getHeaderFields conn)))))
+           (throw (ex-info (str "Request to " url " throttled (429), but Retry-After response header was missing or invalid.") (into {} (.getHeaderFields conn)))))
+
+       :else
+         (throw (ex-info (str "Unexpected HTTP response from " url ": " response-code) (into {} (.getHeaderFields conn))))))
    nil))
 
 (defmethod cache-miss! java.net.URL
