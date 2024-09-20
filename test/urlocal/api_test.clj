@@ -45,4 +45,7 @@
   (testing "Valid URLs - outside cache interval period, but cache hit"
     (set-cache-check-interval-secs! 0)
     (Thread/sleep 1000)  ; Make sure we have at least a once second gap between cache checks
-    (is (valid-cached-response? "https://spdx.org/licenses/equivalentwords.txt" (input-stream "https://spdx.org/licenses/equivalentwords.txt")))))
+    (is (valid-cached-response? "https://spdx.org/licenses/equivalentwords.txt" (input-stream "https://spdx.org/licenses/equivalentwords.txt"))))
+  (testing "Throttled requests"
+    ; At times, gnu.org has throttled requests for license texts. Sadly this behaviour seems to change randomly, so this unit test is not guaranteed to actually test throttling behaviour at all times.
+    (is (valid-cached-response? "https://www.gnu.org/licenses/gpl-3.0.txt" (input-stream "https://www.gnu.org/licenses/gpl-3.0.txt" {:retry-when-throttled? true})))))
