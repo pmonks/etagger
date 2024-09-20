@@ -69,7 +69,7 @@
 
 (defn cache-dir
   "Returns the current cache directory as a `java.io.File`."
-  []
+  ^java.io.File []
   (io/file @uic/cache-dir-a))
 
 (defn cache-name

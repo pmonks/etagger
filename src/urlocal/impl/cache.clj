@@ -156,12 +156,14 @@
   "Handles a cache miss, by caching content locally and capturing metadata from
   the response for the purposes of cache management.
 
-  source may be:
-  * a URL, in which case an HTTP GET request is made
-  * a HttpURLConnection, in which case it is assumed to already be connected
+  `source` may be:
+
+  * a `java.net.URL`, in which case an HTTP GET request is made
+  * a `java.net.HttpURLConnection`, in which case it is assumed to already be
+    connected
 
   Throws on IO errors or unexpected HTTP status code responses."
-  {:arglists '([source opts] [source already-redirected? opts])}
+  {:arglists '([source opts] [source already-redirected? already-retried? opts])}
   (fn [source & _] (type source)))
 
 (defmethod cache-miss! java.net.HttpURLConnection
