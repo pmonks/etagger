@@ -111,7 +111,8 @@
 
 (defn http-get
   "Perform an HTTP GET request for `url`, using the given options,
-  returning a connected `HTTPUrlConnection` object.
+  returning a connected `HTTPUrlConnection` object.  It is the caller's
+  responsibility to disconnect the connection once processing is complete.
 
   Throws on IO errors."
   (^java.net.HttpURLConnection [^java.net.URL url] (http-get url nil))
