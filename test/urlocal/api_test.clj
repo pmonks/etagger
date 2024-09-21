@@ -40,6 +40,8 @@
     (is (thrown? java.io.IOException            (input-stream "http://INVALID_HOST_THAT_DOES_NOT_EXIST.local/"))))
   (testing "Valid URLs - cache miss"
     (is (valid-cached-response? "https://spdx.org/licenses/licenses.json" (input-stream "https://spdx.org/licenses/licenses.json"))))
+  (testing "Valid URLs - cache hit & content fidelity"
+    (is (= (slurp "https://spdx.org/licenses/licenses.json") (slurp (input-stream "https://spdx.org/licenses/licenses.json")))))  ; This URL must have previously been cached
   (testing "Valid URLs - within cache interval period"
     (is (valid-cached-response? "https://spdx.org/licenses/exceptions.json" (input-stream "https://spdx.org/licenses/exceptions.json"))))
   (testing "Valid URLs - outside cache interval period, but cache hit"

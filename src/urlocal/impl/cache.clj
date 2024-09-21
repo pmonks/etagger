@@ -111,7 +111,8 @@
 
 (defn http-get
   "Perform an HTTP GET request for `url`, using the given options,
-  returning a connected `HTTPUrlConnection` object.
+  returning a connected `HTTPUrlConnection` object.  It is the caller's
+  responsibility to disconnect the connection once processing is complete.
 
   Throws on IO errors."
   (^java.net.HttpURLConnection [^java.net.URL url] (http-get url nil))
@@ -179,43 +180,48 @@
                                  :as   opts}]
    (let [url           (.getURL           conn)
          content-file  (url->content-file url)
-         response-code (.getResponseCode  conn)]
-     (cond
-       ; Normal response (200)
-       (= response-code java.net.HttpURLConnection/HTTP_OK)
-         (let [is (.getInputStream conn)
-               os (io/output-stream (io/file content-file))]
-           (log/debugf "Request to %s succeeded - caching content" (str url))
-           (io/copy is os)
-           (write-metadata! conn)
-           url)
+         response-code (.getResponseCode  conn)
+         is            (.getInputStream   conn)]
+     (try
+       (cond
+         ; Normal response (200)
+         (= response-code java.net.HttpURLConnection/HTTP_OK)
+           (let [is (.getInputStream conn)
+                 of (io/file content-file)]
+             (log/debugf "Request to %s succeeded - caching content" (str url))
+             (io/copy is of)
+             (write-metadata! conn)
+             url)
 
-       ; Redirect (301/302)
-       (and follow-redirects?
-            (not already-redirected?)
-            (or (= response-code java.net.HttpURLConnection/HTTP_MOVED_PERM)
-                (= response-code java.net.HttpURLConnection/HTTP_MOVED_TEMP)))
-         (let [new-url (io/as-url (.getHeaderField conn "Location"))]
-           (log/debugf "Request to %s redirected (%d) to %s" (str url) response-code (str new-url))
-           (remove-cache-entry! url)  ; Remove any cache entries for the original URL, since it's no longer serving content
-           (cache-miss! (http-get new-url opts) true already-retried? opts)
-           new-url)
+         ; Redirect (301/302)
+         (and follow-redirects?
+              (not already-redirected?)
+              (or (= response-code java.net.HttpURLConnection/HTTP_MOVED_PERM)
+                  (= response-code java.net.HttpURLConnection/HTTP_MOVED_TEMP)))
+           (let [new-url (io/as-url (.getHeaderField conn "Location"))]
+             (log/debugf "Request to %s redirected (%d) to %s" (str url) response-code (str new-url))
+             (remove-cache-entry! url)  ; Remove any cache entries for the original URL, since it's no longer serving content
+             (cache-miss! (http-get new-url opts) true already-retried? opts)
+             new-url)
 
-       ; Throttled (429)
-       (and retry-when-throttled?
-            (not already-retried?)
-            (= response-code 429))   ; Note: java.net.HttpURLConnection doesn't have a symbolic constant for status code 429
-         (if-let [retry-after (get-retry-after-header conn)]
-           (if (<= retry-after max-retry-after)
-             (let [sleep-ms (long (* 1000 retry-after))]
-               (log/debugf "Request to %s throttled (429), sleeping %ds then retrying..." (str url) retry-after)
-               (Thread/sleep sleep-ms)
-               (cache-miss! (http-get url opts) already-redirected? true opts))
-             (throw (ex-info (str "Request to " url " throttled (429), but requested retry (" retry-after "s) was longer than maximum allowed (" max-retry-after "s).") (into {} (.getHeaderFields conn)))))
-           (throw (ex-info (str "Request to " url " throttled (429), but Retry-After response header was missing or invalid.") (into {} (.getHeaderFields conn)))))
+         ; Throttled (429)
+         (and retry-when-throttled?
+              (not already-retried?)
+              (= response-code 429))   ; Note: java.net.HttpURLConnection doesn't have a symbolic constant for status code 429
+           (if-let [retry-after (get-retry-after-header conn)]
+             (if (<= retry-after max-retry-after)
+               (let [sleep-ms (long (* 1000 retry-after))]
+                 (log/debugf "Request to %s throttled (429), sleeping %ds then retrying..." (str url) retry-after)
+                 (Thread/sleep sleep-ms)
+                 (cache-miss! (http-get url opts) already-redirected? true opts))
+               (throw (ex-info (str "Request to " url " throttled (429), but requested retry (" retry-after "s) was longer than maximum allowed (" max-retry-after "s).") (into {} (.getHeaderFields conn)))))
+             (throw (ex-info (str "Request to " url " throttled (429), but Retry-After response header was missing or invalid.") (into {} (.getHeaderFields conn)))))
 
-       :else
-         (throw (ex-info (str "Unexpected HTTP response from " url ": " response-code) (into {} (.getHeaderFields conn))))))))
+         :else
+           (throw (ex-info (str "Unexpected HTTP response from " url ": " response-code) (into {} (.getHeaderFields conn)))))
+       (finally
+         (try (.close is)        (catch Throwable _))
+         (try (.disconnect conn) (catch Throwable _)))))))
 
 (defmethod cache-miss! java.net.URL
   [^java.net.URL url opts]
@@ -250,11 +256,14 @@
     (if (> seconds-since-last-check @cache-check-interval-secs-a)
       (try
         (let [conn (http-get url (assoc opts :request-headers (assoc request-headers "If-None-Match" (:etag metadata))))]
-          (log/debugf "Cache check interval exceeded; checking cached copy of %s for staleness..." (str url))
+          (try
+            (log/debugf "Cache check interval exceeded; checking cached copy of %s for staleness..." (str url))
 
-          (if (= (.getResponseCode conn) java.net.HttpURLConnection/HTTP_NOT_MODIFIED)
-            (cache-hit! url metadata-file metadata)
-            (cache-miss! conn opts)))  ; Handle a stale cache entry as a cache miss
+            (if (= (.getResponseCode conn) java.net.HttpURLConnection/HTTP_NOT_MODIFIED)
+              (cache-hit! url metadata-file metadata)
+              (cache-miss! conn opts))  ; Handle a stale cache entry as a cache miss
+          (finally
+            (try (.disconnect conn) (catch Throwable _)))))
         (catch Exception e
           (if return-cached-content-on-exception?
             (do
