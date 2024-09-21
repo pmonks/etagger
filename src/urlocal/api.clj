@@ -35,7 +35,7 @@
     milliseconds to wait when establishing the socket connection
   * `:read-timeout` (`int`, default `1000`): the maximum number of milliseconds
     to wait when reading content from the socket connection
-  * `:follows-redirects?` (`boolean`, default `false`): whether to follow a
+  * `:follow-redirects?` (`boolean`, default `false`): whether to follow a
     single redirect (HTTP status codes 301, 302) if the server issues one (more
     than one redirect will throw an exception)
   * `:retry-when-throttled?` (`boolean`, default `false`): whether to
@@ -63,9 +63,8 @@
          :as   opts}]
    (when-let [u (io/as-url url)]
      (when (s/starts-with? (s/lower-case (.getProtocol u)) "http")
-       (uic/prep-cache! u opts)
-       (io/input-stream (uic/url->content-file u))))))
-
+      (let [cached-url (uic/prep-cache! u opts)]  ; Make sure we use the url returned by prep-cache, so that redirects are taken into account
+        (io/input-stream (uic/url->content-file cached-url)))))))
 
 (defn cache-dir
   "Returns the current cache directory as a `java.io.File`."

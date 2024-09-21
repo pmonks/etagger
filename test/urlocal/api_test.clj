@@ -19,16 +19,16 @@
 (ns urlocal.api-test
   (:require [urlocal.impl.cache :as uic]
             [clojure.test       :refer [deftest testing is]]
-            [urlocal.api        :refer [set-cache-name! reset-cache! remove-cache-entry! set-cache-check-interval-secs! input-stream]]))
+            [urlocal.api        :refer [set-cache-name! reset-cache! cache-check-interval-secs set-cache-check-interval-secs! input-stream]]))
 
 ; Make sure we reset (delete) the cache before we run the tests
 (set-cache-name! "urlocal-tests")
 (reset-cache!)
 
 (defn valid-cached-response?
-  [url is]
-  (and (not (nil? is))
-       (instance? java.io.InputStream is)
+  [url input-strm]
+  (and (not (nil? input-strm))
+       (instance? java.io.InputStream input-strm)
        (.exists (uic/url->content-file  url))
        (.exists (uic/url->metadata-file url))))
 
@@ -43,9 +43,13 @@
   (testing "Valid URLs - within cache interval period"
     (is (valid-cached-response? "https://spdx.org/licenses/exceptions.json" (input-stream "https://spdx.org/licenses/exceptions.json"))))
   (testing "Valid URLs - outside cache interval period, but cache hit"
-    (set-cache-check-interval-secs! 0)
-    (Thread/sleep 1000)  ; Make sure we have at least a once second gap between cache checks
-    (is (valid-cached-response? "https://spdx.org/licenses/equivalentwords.txt" (input-stream "https://spdx.org/licenses/equivalentwords.txt"))))
+    (let [cache-check-interval (cache-check-interval-secs)]
+      (set-cache-check-interval-secs! 0)
+      (Thread/sleep 1000)  ; Make sure we have at least a once second gap between cache checks
+      (is (valid-cached-response? "https://spdx.org/licenses/equivalentwords.txt" (input-stream "https://spdx.org/licenses/equivalentwords.txt")))
+      (set-cache-check-interval-secs! cache-check-interval)))
+  (testing "Redirected requests"
+    (is (valid-cached-response? "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt" (input-stream "https://www.gnu.org/licenses/gpl-2.0.txt" {:follow-redirects? true}))))
   (testing "Throttled requests"
     ; At times, gnu.org has throttled requests for license texts. Sadly this behaviour seems to change randomly, so this unit test is not guaranteed to actually test throttling behaviour at all times.
     (is (valid-cached-response? "https://www.gnu.org/licenses/gpl-3.0.txt" (input-stream "https://www.gnu.org/licenses/gpl-3.0.txt" {:retry-when-throttled? true})))))

@@ -109,20 +109,19 @@
   [^java.util.Date d]
   (seconds-since (.toInstant d)))
 
-#_{:clj-kondo/ignore [:unused-binding {:exclude-destructured-keys-in-fn-args true}]}
 (defn http-get
-  "Perform an HTTP GET request for the given URL, using the given options,
-  returning an HTTPUrlConnection object.
+  "Perform an HTTP GET request for `url`, using the given options,
+  returning a connected `HTTPUrlConnection` object.
 
   Throws on IO errors."
   (^java.net.HttpURLConnection [^java.net.URL url] (http-get url nil))
   (^java.net.HttpURLConnection [^java.net.URL url
-                                {:keys [connect-timeout read-timeout follow-redirects? request-headers]
+                                {:keys [connect-timeout read-timeout request-headers]
                                  :or   {connect-timeout   1000
                                         read-timeout      1000
-                                        follow-redirects? false
                                         request-headers   {"User-Agent" "com.github.pmonks/urlocal"}}}]
    (when url
+     (log/tracef "About to HTTP GET %s" (str url))
      (let [conn (doto ^java.net.HttpURLConnection  (.openConnection url)
                       (.setRequestMethod           "GET")
                       (.setConnectTimeout          connect-timeout)
@@ -147,14 +146,16 @@
             nil    ; Not an integer either, so give up
             retry-after-seconds))
         (let [now (.getTime       (java.util.Date.))
-              retry-after-seconds (Math/round (double (/ (- now retry-after-epoch) 1000)))]
+              retry-after-seconds (Math/ceil (double (/ (- now retry-after-epoch) 1000)))]
           (if (neg? retry-after-seconds)
             nil
             retry-after-seconds))))))
 
 (defmulti cache-miss!
   "Handles a cache miss, by caching content locally and capturing metadata from
-  the response for the purposes of cache management.
+  the response for the purposes of cache management.  Returns the url that ended
+  up being used for the cache, which can be different to the caller's original
+  url due to redirects.
 
   `source` may be:
 
@@ -184,8 +185,10 @@
        (= response-code java.net.HttpURLConnection/HTTP_OK)
          (let [is (.getInputStream conn)
                os (io/output-stream (io/file content-file))]
+           (log/debugf "Request to %s succeeded - caching content" (str url))
            (io/copy is os)
-           (write-metadata! conn))
+           (write-metadata! conn)
+           url)
 
        ; Redirect (301/302)
        (and follow-redirects?
@@ -193,8 +196,10 @@
             (or (= response-code java.net.HttpURLConnection/HTTP_MOVED_PERM)
                 (= response-code java.net.HttpURLConnection/HTTP_MOVED_TEMP)))
          (let [new-url (io/as-url (.getHeaderField conn "Location"))]
+           (log/debugf "Request to %s redirected (%d) to %s" (str url) response-code (str new-url))
            (remove-cache-entry! url)  ; Remove any cache entries for the original URL, since it's no longer serving content
-           (cache-miss! (http-get new-url opts) true already-retried? opts))
+           (cache-miss! (http-get new-url opts) true already-retried? opts)
+           new-url)
 
        ; Throttled (429)
        (and retry-when-throttled?
@@ -210,27 +215,31 @@
            (throw (ex-info (str "Request to " url " throttled (429), but Retry-After response header was missing or invalid.") (into {} (.getHeaderFields conn)))))
 
        :else
-         (throw (ex-info (str "Unexpected HTTP response from " url ": " response-code) (into {} (.getHeaderFields conn))))))
-   nil))
+         (throw (ex-info (str "Unexpected HTTP response from " url ": " response-code) (into {} (.getHeaderFields conn))))))))
 
 (defmethod cache-miss! java.net.URL
   [^java.net.URL url opts]
   (cache-miss! (http-get url opts) opts))
 
 (defn cache-hit!
-  "Handles a cache hit, by updating the :last-checked-at metadata.  Assumes that
-  the cache is already populated with the given URL.
+  "Handles a cache hit, by updating the `:last-checked-at metadata`.  Assumes
+  that the cache is already populated with content and metadata for `url`.
+  Returns `url`.
 
   Throws on IO errors."
   [url metadata-file metadata]
   (log/debugf "Cache hit - cached copy of %s is up to date." (str url))
-  (write-metadata-file! metadata-file (assoc metadata :last-checked-at (java.util.Date.))))
+  (write-metadata-file! metadata-file (assoc metadata :last-checked-at (java.util.Date.)))
+  url)
 
 (defn check-cache!
   "Handles a potential cache hit, by determining whether the cached content
   needs to be checked for staleness via an ETag request, or whether it can
   simply be served directly.  Assumes that the cache is already populated with
-  the given URL.
+  content and metadata for `url`.
+
+  Returns the `url` that ended up being used for the cache, which can be
+  different to the caller's original `url` due to redirects.
 
   Throws on IO errors or unexpected HTTP status code responses."
   [^java.net.URL url {:keys [request-headers return-cached-content-on-exception?] :as opts}]
@@ -248,17 +257,20 @@
             (cache-miss! conn opts)))  ; Handle a stale cache entry as a cache miss
         (catch Exception e
           (if return-cached-content-on-exception?
-            (log/warnf e "Unexpected exception while checking %s for staleness. Potentially stale cached content will be used." (str url))
+            (do
+              (log/warnf e "Unexpected exception while checking %s for staleness. Potentially stale cached content will be used." (str url))
+              url)
             (throw e))))
-      (log/debug "Cache hit - within cache check interval; skipped staleness check for cached copy of" (str url))))
-  nil)
+      (do
+        (log/debug "Cache hit - within cache check interval; skipped staleness check for cached copy of" (str url))
+        url))))
 
 (defn prep-cache!
   "Ensures the cache is populated for the given url."
   [^java.net.URL url opts]
   (when url
     (when-not (.exists (io/file @cache-dir-a)) (io/make-parents (io/file @cache-dir-a "dummy.txt")))
-    (let [cached-content-file  (url->content-file url)
+    (let [cached-content-file  (url->content-file  url)
           cached-metadata-file (url->metadata-file url)]
       (if (and cached-content-file
                (.exists cached-content-file)

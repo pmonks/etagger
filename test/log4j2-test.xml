@@ -6,13 +6,13 @@
     </Appender>
   </Appenders>
   <Loggers>
-    <Logger name="org.apache" level="FATAL">
+    <Logger name="org.apache" level="FATAL" additivity="false">
       <AppenderRef ref="Console"/>
     </Logger>
-    <Logger name="org.eclipse" level="FATAL">
+    <Logger name="org.eclipse" level="FATAL" additivity="false">
       <AppenderRef ref="Console"/>
     </Logger>
-    <Logger name="urlocal" level="TRACE">
+    <Logger name="urlocal" level="DEBUG" additivity="false">
       <AppenderRef ref="Console"/>
     </Logger>
     <Root level="WARN">
