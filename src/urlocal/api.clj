@@ -41,7 +41,8 @@
   * `:retry-when-throttled?` (`boolean`, default `false`): whether to
     automatically handle throttled HTTP requests (HTTP status code 429), by
     sleeping as requested by the `Retry-After` HTTP response header, then
-    retrying the request
+    retrying the request once (if a second 429 is returned upon retry, an
+    exception will be thrown)
   * `:max-retry-after` (`int`, default `10`): the maximum number of seconds to
     sleep when waiting to retry a throttled request
   * `:request-headers` (a `Map` with `String` keys and values): a map of request
