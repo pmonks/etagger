@@ -65,20 +65,17 @@
     (spit f (pr-str m))))
 
 (defn write-metadata!
-  "Writes out a metadata file for the given open connection.
-
-  Note: does nothing if the connection did not return an ETag - this ensures
-  that future requests to the same URL will always be treated as a cache miss."
+  "Writes out a metadata file for the given open connection."
   [^java.net.HttpURLConnection conn]
   (let [url  (.getURL conn)
         now  (java.util.Date.)
         etag (.getHeaderField conn "ETag")]
-    (when-not (s/blank? etag)
-      (write-metadata-file! (url->metadata-file url)
+    (write-metadata-file! (url->metadata-file url)
+                          (merge
                             {:url             (str url)
-                             :etag            etag
                              :downloaded-at   now
-                             :last-checked-at now}))))
+                             :last-checked-at now}
+                            (when-not (s/blank? etag) {:etag etag})))))
 
 (defn remove-cache-entry!
   "Removes the cache entry for a single URL, if it exists. Returns nil.
@@ -120,7 +117,7 @@
                                 {:keys [connect-timeout read-timeout request-headers]
                                  :or   {connect-timeout   1000
                                         read-timeout      1000
-                                        request-headers   {"User-Agent" "com.github.pmonks/urlocal"}}}]
+                                        request-headers   {"User-Agent" "https://github.com/pmonks/urlocal"}}}]   ; Note: we use a URL since there's an unofficial guideline that non-browser agent strings must be either a URL or an email address, and some servers reject requests that don't follow this convention (e.g. https://www.eclipse.org/)
    (when url
      (log/tracef "About to HTTP GET %s" (str url))
      (let [conn (doto ^java.net.HttpURLConnection  (.openConnection url)
@@ -128,7 +125,7 @@
                       (.setConnectTimeout          connect-timeout)
                       (.setReadTimeout             read-timeout)
                       (.setInstanceFollowRedirects false))]  ; Note: we handle redirects ourselves, to ensure cache coherence
-       (run! #(.setRequestProperty conn (key %) (val %)) (merge {"User-Agent" "com.github.pmonks/urlocal"} request-headers))  ; Note: ensure there's always a User-Agent header
+       (run! #(.setRequestProperty conn (key %) (val %)) (merge {"User-Agent" "https://github.com/pmonks/urlocal"} request-headers))  ; Note: ensure there's always a User-Agent header
        (.connect conn)
        conn))))
 
@@ -186,11 +183,10 @@
        (cond
          ; Normal response (200)
          (= response-code java.net.HttpURLConnection/HTTP_OK)
-           (let [is (.getInputStream conn)
-                 of (io/file content-file)]
+           (let [of (io/file content-file)]
              (log/debugf "Request to %s succeeded - caching content" (str url))
-             (io/copy is of)
              (write-metadata! conn)
+             (io/copy is of)
              url)
 
          ; Redirect (301/302)
@@ -199,6 +195,9 @@
               (or (= response-code java.net.HttpURLConnection/HTTP_MOVED_PERM)
                   (= response-code java.net.HttpURLConnection/HTTP_MOVED_TEMP)))
            (let [new-url (io/as-url (.getHeaderField conn "Location"))]
+             ; Aggressively close connection to original url
+             (try (.close is)        (catch Throwable _))
+             (try (.disconnect conn) (catch Throwable _))
              (log/debugf "Request to %s redirected (%d) to %s" (str url) response-code (str new-url))
              (remove-cache-entry! url)  ; Remove any cache entries for the original URL, since it's no longer serving content
              (cache-miss! (http-get new-url opts) true already-retried? opts)
@@ -211,6 +210,9 @@
            (if-let [retry-after (get-retry-after-header conn)]
              (if (<= retry-after max-retry-after)
                (let [sleep-ms (long (* 1000 retry-after))]
+                 ; Aggressively close connection to original url
+                 (try (.close is)        (catch Throwable _))
+                 (try (.disconnect conn) (catch Throwable _))
                  (log/debugf "Request to %s throttled (429), sleeping %ds then retrying..." (str url) retry-after)
                  (Thread/sleep sleep-ms)
                  (cache-miss! (http-get url opts) already-redirected? true opts))
@@ -255,15 +257,17 @@
         seconds-since-last-check (seconds-since last-checked)]
     (if (> seconds-since-last-check @cache-check-interval-secs-a)
       (try
-        (let [conn (http-get url (assoc opts :request-headers (assoc request-headers "If-None-Match" (:etag metadata))))]
-          (try
-            (log/debugf "Cache check interval exceeded; checking cached copy of %s for staleness..." (str url))
-
-            (if (= (.getResponseCode conn) java.net.HttpURLConnection/HTTP_NOT_MODIFIED)
-              (cache-hit! url metadata-file metadata)
-              (cache-miss! conn opts))  ; Handle a stale cache entry as a cache miss
-          (finally
-            (try (.disconnect conn) (catch Throwable _)))))
+        (let [etag (:etag metadata)
+              opts (if (s/blank? etag) opts (assoc opts :request-headers (assoc request-headers "If-None-Match" (:etag metadata))))
+              conn (http-get url opts)]
+          (log/debugf "Cache check interval exceeded; checking cached copy of %s for staleness..." (str url))
+          (if (= (.getResponseCode conn) java.net.HttpURLConnection/HTTP_NOT_MODIFIED)
+            (do
+              ; Don't need the connection any more, so close & disconnect it
+              (try (.close (.getInputStream conn)) (catch Throwable _))
+              (try (.disconnect conn)              (catch Throwable _))
+              (cache-hit! url metadata-file metadata))
+            (cache-miss! conn opts)))  ; Handle a stale cache entry as a cache miss
         (catch Exception e
           (if return-cached-content-on-exception?
             (do
