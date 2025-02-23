@@ -51,7 +51,7 @@
                 follow-redirects?                   false
                 retry-when-throttled?               false
                 max-retry-after                     10
-                request-headers                     {"User-Agent" "com.github.pmonks/urlocal"}
+                request-headers                     {"User-Agent" "https://github.com/pmonks/urlocal"}
                 return-cached-content-on-exception? true}
          :as   opts}]
    (when-let [u (io/as-url url)]
